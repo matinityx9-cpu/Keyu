@@ -1,3 +1,11 @@
+# gradio_sd3.py
+
+from pydantic import BaseModel, ConfigDict
+
+# Ensure all Pydantic models allow arbitrary types (fixes Request schema issue)
+BaseModel.model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
 # --- PATCH: fix gradio_client bug with schema bools ---
 try:
     import gradio_client.utils as gcutils
