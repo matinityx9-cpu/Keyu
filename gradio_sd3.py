@@ -1,3 +1,23 @@
+# --- PATCH: fix gradio_client bug with schema bools ---
+try:
+    import gradio_client.utils as gcutils
+    orig_get_type = getattr(gcutils, "get_type", None)
+
+    def _safe_get_type(schema):
+        if isinstance(schema, bool):  # <- this is the bug case
+            return "boolean"
+        try:
+            return orig_get_type(schema) if orig_get_type else "Any"
+        except Exception:
+            return "Any"
+
+    gcutils.get_type = _safe_get_type
+    print("✅ Patched gradio_client.utils.get_type")
+except Exception as e:
+    print("⚠️ Failed to patch gradio_client.utils.get_type:", e)
+# ------------------------------------------------------
+
+
 import gradio as gr
 import os
 import math
