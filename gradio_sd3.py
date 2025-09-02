@@ -1,18 +1,13 @@
-# gradio_sd3.py
+# ------------------ BEGIN TOP-OF-FILE PATCH ------------------
+# MUST be the very first executed lines in the process (before any gradio/fastapi/pydantic imports)
 
-from pydantic import BaseModel, ConfigDict
-
-# Ensure all Pydantic models allow arbitrary types (fixes Request schema issue)
-BaseModel.model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-# --- PATCH: fix gradio_client bug with schema bools ---
+# 1) Prevent gradio_client bug where schema can be bool
 try:
     import gradio_client.utils as gcutils
     orig_get_type = getattr(gcutils, "get_type", None)
 
     def _safe_get_type(schema):
-        if isinstance(schema, bool):  # <- this is the bug case
+        if isinstance(schema, bool):
             return "boolean"
         try:
             return orig_get_type(schema) if orig_get_type else "Any"
@@ -22,8 +17,51 @@ try:
     gcutils.get_type = _safe_get_type
     print("✅ Patched gradio_client.utils.get_type")
 except Exception as e:
-    print("⚠️ Failed to patch gradio_client.utils.get_type:", e)
-# ------------------------------------------------------
+    print("⚠️ Could not patch gradio_client.get_type:", e)
+
+# 2) Patch pydantic's internal generate_schema to *safely* return Any for starlette.requests.Request
+#    This prevents "Unable to generate pydantic-core schema for <class 'starlette.requests.Request'>".
+try:
+    # import internals lazily (only if pydantic v2 is present)
+    import pydantic._internal._generate_schema as _genmod
+    from pydantic_core import core_schema
+    import importlib
+
+    # Resolve starlette.requests without importing starlette too early
+    starlette_requests = importlib.util.find_spec("starlette.requests")
+    _has_starlette = starlette_requests is not None
+
+    _orig_generate = getattr(_genmod, "generate_schema", None)
+    if _orig_generate is not None and _has_starlette:
+        import starlette.requests as _sr
+
+        def _generate_schema_safe(obj, *args, **kwargs):
+            # if Pydantic is asked to generate a schema for starlette.requests.Request,
+            # return a permissive Any schema so schema generation won't fail.
+            try:
+                if obj is getattr(_sr, "Request", None):
+                    return core_schema.any_schema()
+            except Exception:
+                pass
+            return _orig_generate(obj, *args, **kwargs)
+
+        _genmod.generate_schema = _generate_schema_safe
+        print("✅ Patched pydantic generate_schema for starlette.requests.Request")
+    else:
+        print("ℹ️ pydantic internal generate_schema not patched (maybe pydantic v1 or starlette not found)")
+except Exception as e:
+    print("⚠️ Could not patch pydantic generate_schema:", repr(e))
+
+# 3) (optional) allow arbitrary types on BaseModel as backup
+try:
+    from pydantic import BaseModel, ConfigDict
+    BaseModel.model_config = ConfigDict(arbitrary_types_allowed=True)
+    print("✅ Set BaseModel.model_config.arbitrary_types_allowed = True")
+except Exception:
+    # if it fails, ignore — the generate_schema patch is the main fix
+    pass
+
+# ------------------- END TOP-OF-FILE PATCH -------------------
 
 
 import gradio as gr
