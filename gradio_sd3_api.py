@@ -1,3 +1,6 @@
+# gradio_sd3_api_fixed.py
+# Full file with async upload helper and awaited calls in /tryon endpoint.
+
 import argparse
 import os
 import math
@@ -199,27 +202,30 @@ async def root():
     return {"status": "ok", "service": "FitDiT Try-on API"}
 
 
+# ---------- Async helper that reads UploadFile bytes and writes to disk ----------
 async def _save_upload_to_temp(upload: UploadFile, suffix: str) -> str:
     """
     Read the incoming UploadFile fully as bytes and write to a temporary file.
     Return the path to the temporary file.
     """
-    # read the file contents as bytes (UploadFile.read() is async)
-    data = await upload.read()
-
-    # create a temp file with the requested suffix and write bytes
     fd, path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
+
+    # Read all bytes from the UploadFile (async)
+    data = await upload.read()
+
+    # Write bytes to disk
     with open(path, "wb") as f:
         f.write(data)
 
-    # close the upload file
+    # Close the UploadFile
     try:
         await upload.close()
     except Exception:
         pass
 
     return path
+# -------------------------------------------------------------------------------
 
 
 @app.post("/tryon")
@@ -240,6 +246,7 @@ async def tryon(person: UploadFile = File(...), garment: UploadFile = File(...),
     tmp_person = None
     tmp_garment = None
     try:
+        # <-- await the async helper here -->
         tmp_person = await _save_upload_to_temp(person, suffix="_person.jpg")
         tmp_garment = await _save_upload_to_temp(garment, suffix="_garment.png")
 
