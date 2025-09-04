@@ -199,12 +199,29 @@ async def root():
     return {"status": "ok", "service": "FitDiT Try-on API"}
 
 
-def _save_upload_to_temp(upload: UploadFile, suffix: str) -> str:
+async def _save_upload_to_temp(upload: UploadFile, suffix: str) -> str:
+    """
+    Read the incoming UploadFile fully as bytes and write to a temporary file.
+    Return the path to the temporary file.
+    """
     fd, path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
+
+    # Read all bytes from the UploadFile (async)
+    data = await upload.read()
+
+    # Write bytes to disk
     with open(path, "wb") as f:
-        shutil.copyfileobj(upload.file, f)
+        f.write(data)
+
+    # Close the UploadFile
+    try:
+        await upload.close()
+    except Exception:
+        pass
+
     return path
+
 
 
 @app.post("/tryon")
@@ -225,8 +242,8 @@ async def tryon(person: UploadFile = File(...), garment: UploadFile = File(...),
     tmp_person = None
     tmp_garment = None
     try:
-        tmp_person = _save_upload_to_temp(person, suffix="_person.jpg")
-        tmp_garment = _save_upload_to_temp(garment, suffix="_garment.png")
+        tmp_person = await _save_upload_to_temp(person, suffix="_person.jpg")
+        tmp_garment = await _save_upload_to_temp(garment, suffix="_garment.png")
 
         # generate mask automatically
         gen = app.state.generator
