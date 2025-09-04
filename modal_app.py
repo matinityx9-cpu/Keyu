@@ -6,7 +6,7 @@ app = modal.App("fitdit-inference")
 # Build the container image with requirements
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .pip_install_from_requirements("FitDiT/requirements.txt")
+    .pip_install_from_requirements("requirements.txt")
 )
 
 # Expose the FastAPI app with GPU support
