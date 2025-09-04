@@ -1,7 +1,7 @@
 # modal_app.py
 import modal
 
-modal_app = modal.App("fitdit-inference")
+app = modal.App("fitdit-inference")
 
 # Build the container image with requirements
 image = (
@@ -10,7 +10,7 @@ image = (
 )
 
 # Expose the FastAPI app with GPU support
-@modal_app.function(
+@app.function(   # <- was modal_app.function
     image=image,
     gpu="A100-40GB",
     timeout=600,
