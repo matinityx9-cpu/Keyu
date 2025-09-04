@@ -204,24 +204,22 @@ async def _save_upload_to_temp(upload: UploadFile, suffix: str) -> str:
     Read the incoming UploadFile fully as bytes and write to a temporary file.
     Return the path to the temporary file.
     """
-    fd, path = tempfile.mkstemp(suffix=suffix)
-    os.close(fd)
-
-    # Read all bytes from the UploadFile (async)
+    # read the file contents as bytes (UploadFile.read() is async)
     data = await upload.read()
 
-    # Write bytes to disk
+    # create a temp file with the requested suffix and write bytes
+    fd, path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
     with open(path, "wb") as f:
         f.write(data)
 
-    # Close the UploadFile
+    # close the upload file
     try:
         await upload.close()
     except Exception:
         pass
 
     return path
-
 
 
 @app.post("/tryon")
