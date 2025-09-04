@@ -311,3 +311,5 @@ if __name__ == "__main__":
     print("Model loaded. Starting API...")
 
     uvicorn.run(app, host=args.host, port=args.port)
+    print("✅ FastAPI app loaded with /tryon route")
+
