@@ -3,7 +3,7 @@ import sys
 import modal
 from huggingface_hub import snapshot_download
 
-app = modal.App("fitdit-inference")
+app = modal.App("igor-inference")
 
 def download_models():
     print("⬇️ Downloading FitDiT weights from Hugging Face...")
