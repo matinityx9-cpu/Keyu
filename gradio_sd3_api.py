@@ -108,8 +108,9 @@ class FitDiTGenerator:
             mask = Image.fromarray(mask)
             mask, _, _ = pad_and_resize(mask, new_width=new_width, new_height=new_height, pad_color=(0,0,0))
             mask = mask.convert("L")
-            pose_image = Image.fromarray(pose_image)
+            # pose_image is already a PIL.Image from generate_mask
             pose_image, _, _ = pad_and_resize(pose_image, new_width=new_width, new_height=new_height, pad_color=(0,0,0))
+
             if seed==-1:
                 seed = random.randint(0, 2147483647)
             res = self.pipeline(
@@ -194,7 +195,20 @@ NUM_IMAGES = 1
 RUN_MASKS = True
 RUN_TRYON = True
 
+from fastapi import FastAPI
+
+# existing code...
 app = FastAPI(title="FitDiT Try-on API")
+
+# --- Modal startup hook ---
+@app.on_event("startup")
+async def load_model():
+    model_path = "/root/FitDiT/models"   # 🔧 adjust this to where your weights are stored
+    print("Loading FitDiT model for Modal deployment...")
+    generator = FitDiTGenerator(model_path, device="cuda:0", with_fp16=True)
+    app.state.generator = generator
+    print("✅ Model loaded and stored in app.state.generator")
+
 
 # Health
 @app.get("/")
