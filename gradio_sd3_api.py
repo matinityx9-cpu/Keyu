@@ -196,9 +196,19 @@ RUN_MASKS = True
 RUN_TRYON = True
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # existing code...
 app = FastAPI(title="FitDiT Try-on API")
+
+# Allow all origins (for testing — you can restrict later)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # or restrict to ["https://yourdomain.com"]
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Modal startup hook ---
 @app.on_event("startup")
@@ -242,33 +252,37 @@ async def _save_upload_to_temp(upload: UploadFile, suffix: str) -> str:
 # -------------------------------------------------------------------------------
 
 
+from fastapi import Query
+
 @app.post("/tryon")
-async def tryon(person: UploadFile = File(...), garment: UploadFile = File(...), category: str = Form(...)):
+async def tryon(
+    person: UploadFile = File(...),
+    garment: UploadFile = File(...),
+    category: str = Form(...),
+    format: str = Query("jpeg", regex="^(jpeg|png)$")  # <-- NEW
+):
     """Run the FitDiT try-on pipeline with hardcoded parameters.
 
     Request: multipart/form-data with fields:
       - person: image file (jpg/png)
       - garment: image file (jpg/png)
       - category: string ("Upper-body", "Lower-body", "Dresses")
+      - format: string ("jpeg" or "png"), default = "jpeg"
 
-    Response: image/png bytes (first generated try-on image)
+    Response: image bytes
     """
-    # Basic validation
     if category not in ["Upper-body", "Lower-body", "Dresses"]:
         raise HTTPException(status_code=400, detail="Invalid category. Choose one of Upper-body, Lower-body, Dresses")
 
     tmp_person = None
     tmp_garment = None
     try:
-        # <-- await the async helper here -->
         tmp_person = await _save_upload_to_temp(person, suffix="_person.jpg")
         tmp_garment = await _save_upload_to_temp(garment, suffix="_garment.png")
 
-        # generate mask automatically
         gen = app.state.generator
         pre_mask, pose_image = gen.generate_mask(tmp_person, category, *MASK_OFFSETS)
 
-        # run try-on
         res_images = gen.process(
             tmp_person,
             tmp_garment,
@@ -281,21 +295,26 @@ async def tryon(person: UploadFile = File(...), garment: UploadFile = File(...),
             resolution=TRYON_RESOLUTION,
         )
 
-        # return first image as PNG bytes
         if not res_images:
             raise HTTPException(status_code=500, detail="No image generated")
 
         out_img = res_images[0]
         buf = io.BytesIO()
-        out_img.save(buf, format="PNG")
+
+        if format == "jpeg":   # <-- smaller & faster
+            out_img.save(buf, format="JPEG", quality=90)
+            media_type = "image/jpeg"
+        else:                  # <-- fallback to PNG
+            out_img.save(buf, format="PNG")
+            media_type = "image/png"
+
         buf.seek(0)
-        return Response(content=buf.getvalue(), media_type="image/png")
+        return Response(content=buf.getvalue(), media_type=media_type)
 
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # cleanup temp files
         try:
             if tmp_person and os.path.exists(tmp_person):
                 os.remove(tmp_person)
@@ -303,6 +322,7 @@ async def tryon(person: UploadFile = File(...), garment: UploadFile = File(...),
                 os.remove(tmp_garment)
         except Exception:
             pass
+
 
 
 # --------------------------- Entrypoint ---------------------------
