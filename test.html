@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>FitDiT Try-On</title>
+  <style>
+    #loading {
+      display: none;
+      font-weight: bold;
+      color: blue;
+      margin-top: 10px;
+    }
+    #result {
+      max-width: 400px;
+      display: none;
+      margin-top: 20px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <form id="tryon-form">
+    <label>Person Image: <input type="file" name="person" required /></label><br/>
+    <label>Garment Image: <input type="file" name="garment" required /></label><br/>
+    <label>Category:
+      <select name="category" required>
+        <option value="Upper-body">Upper-body</option>
+        <option value="Lower-body">Lower-body</option>
+        <option value="Dresses">Dresses</option>
+      </select>
+    </label><br/>
+    <button type="submit" id="submit-btn">Try On</button>
+  </form>
+
+  <div id="loading">⏳ Generating result... please wait.</div>
+  <h3>Result:</h3>
+  <img id="result" />
+
+  <script>
+    const form = document.getElementById("tryon-form");
+    const loading = document.getElementById("loading");
+    const result = document.getElementById("result");
+    const submitBtn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      loading.style.display = "block";
+      result.style.display = "none";
+      submitBtn.disabled = true;
+
+      try {
+        const formData = new FormData(form);
+
+        const res = await fetch("https://jeffreyinyangx9--keyu-inference-fastapi-app.modal.run/tryon", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          throw new Error("Server error: " + res.status);
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+
+        result.src = url;
+        result.style.display = "block";
+      } catch (err) {
+        alert("❌ " + err.message);
+      } finally {
+        loading.style.display = "none";
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
