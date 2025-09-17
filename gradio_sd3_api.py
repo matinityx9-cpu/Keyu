@@ -91,29 +91,55 @@ class FitDiTGenerator:
             im['composite'] = np.array(masked_vton_img.convert("RGBA"))
             
             return im, pose_image
+        
+    # --- background removal ---
 
-    def process(self, vton_img, garm_img, pre_mask, pose_image, n_steps, image_scale, seed, num_images_per_prompt, resolution):
+    
+
+    def process(
+            self,
+            vton_img,
+            garm_img,
+            pre_mask,
+            pose_image,
+            n_steps,
+            image_scale,
+            seed,
+            num_images_per_prompt,
+            resolution,
+            ):
+        
         assert resolution in ["768x1024", "1152x1536", "1536x2048"]
-        new_width, new_height = resolution.split("x")
-        new_width = int(new_width)
-        new_height = int(new_height)
+        new_width, new_height = map(int, resolution.split("x"))
+        
         with torch.inference_mode():
-            garm_img = Image.open(garm_img).convert("RGB")  # ensure RGB
-            vton_img = Image.open(vton_img).convert("RGB")  # ensure RGB
-
+            # --- load inputs ---
+            garm_img = Image.open(garm_img).convert("RGB")
+            vton_img = Image.open(vton_img).convert("RGB")
+            
+            # --- background removal on garment ---
+            from rembg import remove
+            garm_img = remove(garm_img)       # RGBA
+            garm_img = garm_img.convert("RGB")  # flatten transparency
+            
+            # --- resize & pad ---
             model_image_size = vton_img.size
             garm_img, _, _ = pad_and_resize(garm_img, new_width=new_width, new_height=new_height)
             vton_img, pad_w, pad_h = pad_and_resize(vton_img, new_width=new_width, new_height=new_height)
-
+            
             mask = pre_mask["layers"][0][:,:,3]
             mask = Image.fromarray(mask)
             mask, _, _ = pad_and_resize(mask, new_width=new_width, new_height=new_height, pad_color=(0,0,0))
             mask = mask.convert("L")
-            # pose_image is already a PIL.Image from generate_mask
-            pose_image, _, _ = pad_and_resize(pose_image, new_width=new_width, new_height=new_height, pad_color=(0,0,0))
-
-            if seed==-1:
+            
+            pose_image, _, _ = pad_and_resize(
+                pose_image, new_width=new_width, new_height=new_height, pad_color=(0,0,0)
+                )
+            
+            # --- run inference ---
+            if seed == -1:
                 seed = random.randint(0, 2147483647)
+                
             res = self.pipeline(
                 height=new_height,
                 width=new_width,
@@ -124,11 +150,15 @@ class FitDiTGenerator:
                 model_image=vton_img,
                 mask=mask,
                 pose_image=pose_image,
-                num_images_per_prompt=num_images_per_prompt
+                num_images_per_prompt=num_images_per_prompt,
             ).images
+            
+            # --- unpad results back to original person size ---
             for idx in range(len(res)):
                 res[idx] = unpad_and_resize(res[idx], pad_w, pad_h, model_image_size[0], model_image_size[1])
+            
             return res
+
 
 
 
