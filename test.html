@@ -52,6 +52,7 @@
       try {
         const formData = new FormData(form);
 
+        // Change the URL to your deployed FastAPI endpoint
         const res = await fetch("https://jeffreyinyangx9--keyu-inference-fastapi-app.modal.run/tryon", {
           method: "POST",
           body: formData
