@@ -38,7 +38,7 @@ def sync_weights():
     gpu="A100-40GB",
     timeout=600,
     volumes={"/root/FitDiT/models": volume},  # mount weights here
-    # min_instances=1,  # keep a container warm
+    min_containers = 1,  # keep a container warm
 )
 
 @modal.asgi_app()
