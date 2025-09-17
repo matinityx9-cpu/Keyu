@@ -62,9 +62,10 @@ class FitDiTGenerator:
         
     def generate_mask(self, vton_img, category, offset_top, offset_bottom, offset_left, offset_right):
         with torch.inference_mode():
-            vton_img = Image.open(vton_img)
+            vton_img = Image.open(vton_img).convert("RGB")  # <-- force 3 channels
             vton_img_det = resize_image(vton_img)
-            pose_image, keypoints, _, candidate = self.dwprocessor(np.array(vton_img_det)[:,:,::-1])
+            pose_image, keypoints, _, candidate = self.dwprocessor(np.array(vton_img_det)[:, :, ::-1])
+
             candidate[candidate<0]=0
             candidate = candidate[0]
 
@@ -97,8 +98,8 @@ class FitDiTGenerator:
         new_width = int(new_width)
         new_height = int(new_height)
         with torch.inference_mode():
-            garm_img = Image.open(garm_img)
-            vton_img = Image.open(vton_img)
+            garm_img = Image.open(garm_img).convert("RGB")  # ensure RGB
+            vton_img = Image.open(vton_img).convert("RGB")  # ensure RGB
 
             model_image_size = vton_img.size
             garm_img, _, _ = pad_and_resize(garm_img, new_width=new_width, new_height=new_height)
