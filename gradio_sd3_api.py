@@ -29,11 +29,11 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, JSONResponse
 import uvicorn
 
-# --------------------------- FitDiT core (kept from original) ---------------------------
+# --------------------------- Keyu core (kept from original) ---------------------------
 example_path = os.path.join(os.path.dirname(__file__), 'examples')
 
 
-class FitDiTGenerator:
+class KeyuGenerator:
     def __init__(self, model_root, offload=False, aggressive_offload=False, device="cuda:0", with_fp16=False):
         weight_dtype = torch.float16 if with_fp16 else torch.bfloat16
         transformer_garm = SD3Transformer2DModel_Garm.from_pretrained(os.path.join(model_root, "transformer_garm"), torch_dtype=weight_dtype)
@@ -230,7 +230,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # existing code...
-app = FastAPI(title="FitDiT Try-on API")
+app = FastAPI(title="Keyu Try-on API")
 
 # Allow all origins (for testing — you can restrict later)
 app.add_middleware(
@@ -244,9 +244,9 @@ app.add_middleware(
 # --- Modal startup hook ---
 @app.on_event("startup")
 async def load_model():
-    model_path = "/root/FitDiT/models"   # 🔧 adjust this to where your weights are stored
-    print("Loading FitDiT model for Modal deployment...")
-    generator = FitDiTGenerator(model_path, device="cuda:0", with_fp16=True)
+    model_path = "/root/keyu/models"   # 🔧 adjust this to where your weights are stored
+    print("Loading keyu model for Modal deployment...")
+    generator = KeyuGenerator(model_path, device="cuda:0", with_fp16=True)
     app.state.generator = generator
     print("✅ Model loaded and stored in app.state.generator")
 
@@ -254,7 +254,7 @@ async def load_model():
 # Health
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "FitDiT Try-on API"}
+    return {"status": "ok", "service": "Keyu Try-on API"}
 
 
 # ---------- Async helper that reads UploadFile bytes and writes to disk ----------
@@ -292,7 +292,7 @@ async def tryon(
     category: str = Form(...),
     format: str = Query("jpeg", regex="^(jpeg|png)$")  # <-- NEW
 ):
-    """Run the FitDiT try-on pipeline with hardcoded parameters.
+    """Run the Keyu try-on pipeline with hardcoded parameters.
 
     Request: multipart/form-data with fields:
       - person: image file (jpg/png)
@@ -358,8 +358,8 @@ async def tryon(
 
 # --------------------------- Entrypoint ---------------------------
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="FitDiT API runner")
-    parser.add_argument("--model_path", type=str, required=True, help="The path of FitDiT model.")
+    parser = argparse.ArgumentParser(description="Keyu API runner")
+    parser.add_argument("--model_path", type=str, required=True, help="The path of Keyu model.")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device to use")
     parser.add_argument("--fp16", action="store_true", help="Load model with fp16, default is bf16")
     parser.add_argument("--offload", action="store_true", help="Offload model to CPU when not in use.")
@@ -370,8 +370,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # instantiate and store generator on app state
-    print("Loading FitDiT model (this can take a few minutes)...")
-    generator = FitDiTGenerator(args.model_path, offload=args.offload, aggressive_offload=args.aggressive_offload, device=args.device, with_fp16=args.fp16)
+    print("Loading Keyu model (this can take a few minutes)...")
+    generator = KeyuGenerator(args.model_path, offload=args.offload, aggressive_offload=args.aggressive_offload, device=args.device, with_fp16=args.fp16)
     app.state.generator = generator
     print("Model loaded. Starting API...")
 
